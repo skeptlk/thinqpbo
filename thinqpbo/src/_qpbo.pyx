@@ -1,7 +1,8 @@
 # distutils: language = c++
 
 from .src._qpbo cimport QPBO, EdgeId, NodeId
-
+from cpython cimport array
+import array
 
 cdef public class QPBOInt[object PyObject_QPBOInt, type QPBOInt]:
     cdef QPBO[int]* c_qpbo
@@ -379,7 +380,53 @@ cdef public class QPBOFloat[object PyObject_QPBOFloat, type QPBOFloat]:
         order_array and fixed_pixels can point to the same array.
         """
         return self.c_qpbo.Improve()
+        
+    def probe(self, list mapping not None, dict options_dict):
+        """
+        Fixes some nodes to 0 or 1, contracts other nodes. These transformations
+        do not change global minima. The internally stored energy is modified accordingly.
+        (In particular, the new energy may have a different number of nodes and edges).
 
+        Nodes of the old energy are associated with nodes of the new energy 
+        (possibly with inversion: 0<-->1). This association is returned
+        in array mapping as follows:
+        If old node i corresponds to new node j with inversion x (x=0,1) then 
+        mapping[i] = 2*j + x.
+
+        If y is a global minimum of the new energy, then solution x defined by
+        x[i] = (y[mapping[i]/2] + mapping[i]) % 2
+        is a global minimum of the original energy.
+
+        Node 0 of the new energy is guaranteed to have optimal label 0 (y[0]=0),
+        therefore if mapping[i] < 2 then this is the optimal label for node i.
+
+        Before calling Probe() you can call SetLabel() to set an input labeling x0.
+        During the procedure this labeling is transformed. The new labeling y0 can
+        be read via GetLabel() after Probe() (P+I method - see Rother et al, CVPR'07).
+        """
+        cdef QPBO[float].ProbeOptions options
+        
+        options.directed_constraints = options_dict.get('directed_constraints', 0)
+        options.weak_persistencies = options_dict.get('weak_persistencies', 0)
+        options.C = options_dict.get('C', 0.0)
+        options.order_seed = options_dict.get('order_seed', 0)
+        options.dilation = options_dict.get('dilation', 0)
+        
+        # cdef np.ndarray[np.int32_t, ndim=1] order_array
+        # if 'order_array' in options_dict:
+        #     order_array = np.ascontiguousarray(options_dict['order_array'], dtype=np.int32)
+        #     options.order_array = &order_array[0]
+        # else:
+        #     options.order_array = NULL
+
+        cdef array.array arr = array.array('i', mapping)
+        cdef int[:] arr_view = arr
+        
+        self.c_qpbo.Probe(&arr_view[0], options)
+        
+        mapping[:] = arr.tolist()
+
+        return None
 
 cdef public class QPBODouble[object PyObject_QPBODouble, type QPBODouble]:
     cdef QPBO[double]* c_qpbo

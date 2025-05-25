@@ -7,10 +7,17 @@ ctypedef int NodeId;
 ctypedef long long EdgeId;
 
 cdef extern from "core/QPBO.h":
-    struct ProbeOptions:
-        pass
-
     cdef cppclass QPBO[REAL]:
+        struct ProbeOptions:
+            ProbeOptions()
+            int directed_constraints
+            int weak_persistencies
+            REAL C
+            int* order_array
+            unsigned int order_seed
+            int dilation
+            bool (*callback_fn)(int unlabeled_num)
+        
         QPBO(int node_num_max, EdgeId edge_num_max) except +
         bool Save(char* filename)
         bool Load(char* filename)
@@ -36,4 +43,4 @@ cdef extern from "core/QPBO.h":
         int GetRegion(NodeId i)
         bool Improve(int N, int* order_array, int* fixed_nodes)
         bool Improve()
-        void Probe(int* mapping, ProbeOptions& option)
+        void Probe(int* mapping, ProbeOptions& option) except +
